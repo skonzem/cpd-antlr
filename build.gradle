@@ -1,0 +1,42 @@
+plugins { id 'org.ajoberstar.grgit' version '1.3.2' }
+
+import org.ajoberstar.grgit.*
+
+def grammarDir = 'antlr-grammars-v4'
+
+apply plugin: 'java'
+
+repositories { jcenter() }
+
+dependencies {
+    // The production code uses the SLF4J logging API at compile time
+    compile 'org.slf4j:slf4j-api:1.7.12'
+    compile fileTree(dir: 'libs', include: ['*.jar'])
+
+    testCompile 'junit:junit:4.12'
+}
+
+task cloneGrammars {
+    if(!new File(grammarDir).exists()) {
+        Grgit.clone(dir: grammarDir, uri: 'git@github.com:antlr/grammars-v4.git')
+    }
+}
+
+task buildGrammars(type: Exec, dependsOn: cloneGrammars) {
+    inputs.files(grammarDir + '/**/*.g4')
+    outputs.files(grammarDir + '/**/target/*.jar')
+
+    workingDir grammarDir
+    commandLine 'mvn', 'package'
+}
+
+task copyGrammars(type: Copy, dependsOn: buildGrammars) {
+    from(grammarDir) { include '**/target/*.jar' }
+    into 'libs'
+    eachFile {it.path = it.name} // strip directory path
+    includeEmptyDirs = false
+}
+
+jar {
+    from configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }
+}

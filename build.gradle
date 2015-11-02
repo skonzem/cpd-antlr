@@ -1,16 +1,22 @@
 plugins { id 'org.ajoberstar.grgit' version '1.3.2' }
 
 import org.ajoberstar.grgit.*
+import net.quidquam.cpdantlr.*
 
 def grammarDir = 'antlr-grammars-v4'
 
 apply plugin: 'java'
+apply plugin: 'eclipse'
 
 repositories { jcenter() }
 
 dependencies {
     // The production code uses the SLF4J logging API at compile time
     compile 'org.slf4j:slf4j-api:1.7.12'
+
+    compile 'org.antlr:antlr4-runtime:4.5.1'
+    compile 'org.apache.commons:commons-lang3:3.4'
+    compile 'net.sourceforge.pmd:pmd-core:5.4.0'
     compile fileTree(dir: 'libs', include: ['*.jar'])
 
     testCompile 'junit:junit:4.12'
@@ -36,6 +42,20 @@ task copyGrammars(type: Copy, dependsOn: buildGrammars) {
     eachFile {it.path = it.name} // strip directory path
     includeEmptyDirs = false
 }
+
+task generateSources (dependsOn: buildGrammars){
+    def outputDir = file("$buildDir/generated-src/java/net/quidquam/cpdantlr/language/")
+    outputs.dir outputDir
+    doFirst {
+        outputDir.exists() || outputDir.mkdirs()
+        fileTree(dir: grammarDir, include: '**/*Lexer.java').each { f ->
+            TokenizerGenerator.generate(f, outputDir)
+            LanguageGenerator.generate(f, outputDir)
+        }
+    }
+}
+
+compileJava.source generateSources.outputs.files, sourceSets.main.java
 
 jar {
     from configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }

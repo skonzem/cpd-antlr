@@ -10,13 +10,18 @@ apply plugin: 'eclipse'
 
 repositories { jcenter() }
 
+configurations {
+    provided
+    compile.extendsFrom provided
+}
+
 dependencies {
     // The production code uses the SLF4J logging API at compile time
-    compile 'org.slf4j:slf4j-api:1.7.12'
+    provided 'org.slf4j:slf4j-api:1.7.12'
+    provided 'net.sourceforge.pmd:pmd-core:5.4.0'
 
     compile 'org.antlr:antlr4-runtime:4.5.1'
     compile 'org.apache.commons:commons-lang3:3.4'
-    compile 'net.sourceforge.pmd:pmd-core:5.4.0'
     compile fileTree(dir: 'libs', include: ['*.jar'])
 
     testCompile 'junit:junit:4.12'
@@ -44,13 +49,20 @@ task copyGrammars(type: Copy, dependsOn: buildGrammars) {
 }
 
 task generateSources (dependsOn: buildGrammars){
-    def outputDir = file("$buildDir/generated-src/java/net/quidquam/cpdantlr/language/")
+    def outputDir = file("$buildDir/generated-src/java/net/quidquam/cpdantlr/language")
+    def servicesDir = file("$buildDir/generated-src/resources/META-INF/services/")
     outputs.dir outputDir
+    outputs.dir servicesDir
     doFirst {
         outputDir.exists() || outputDir.mkdirs()
+        servicesDir.exists() || servicesDir.mkdirs()
+        def serviceFile = new File(servicesDir, 'net.sourceforge.pmd.cpd.Language')
+        serviceFile.write("")
         fileTree(dir: grammarDir, include: '**/*Lexer.java').each { f ->
             TokenizerGenerator.generate(f, outputDir)
             LanguageGenerator.generate(f, outputDir)
+            serviceFile.append('net.quidquam.cpdantlr.language' +
+                f.name.replace('Lexer.java', '') + '\n')
         }
     }
 }
@@ -58,5 +70,14 @@ task generateSources (dependsOn: buildGrammars){
 compileJava.source generateSources.outputs.files, sourceSets.main.java
 
 jar {
-    from configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }
+    dependsOn configurations.runtime
+    from {
+        (configurations.runtime - configurations.provided).collect {
+            it.isDirectory() ? it : zipTree(it)
+        }
+    } {
+        exclude "META-INF/*.SF"
+        exclude "META-INF/*.DSA"
+        exclude "META-INF/*.RSA"
+    }
 }

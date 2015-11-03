@@ -8,7 +8,6 @@ import net.sourceforge.pmd.cpd.Tokenizer;
 import net.sourceforge.pmd.cpd.Tokens;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.Lexer;
-import org.antlr.v4.runtime.BufferedTokenStream;
 import org.antlr.v4.runtime.Token;
 import org.apache.commons.lang3.StringUtils;
 
@@ -22,10 +21,11 @@ public abstract class AbstractANTLRTokenizer implements Tokenizer {
 
         ANTLRInputStream stream = new ANTLRInputStream(code);
         lexer.setInputStream(stream);
-        BufferedTokenStream buffer = new BufferedTokenStream(lexer);
 
-        for(Token token : buffer.getTokens()) {
+        Token token = lexer.nextToken();
+        while(token.getType() != Token.EOF) {
             tokenEntries.add(new TokenEntry(token.getText(), sourceCode.getFileName(), token.getLine()));
+            token = lexer.nextToken();
         }
 
         tokenEntries.add(TokenEntry.getEOF());

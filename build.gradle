@@ -59,10 +59,16 @@ task generateSources (dependsOn: buildGrammars){
         def serviceFile = new File(servicesDir, 'net.sourceforge.pmd.cpd.Language')
         serviceFile.write("")
         fileTree(dir: grammarDir, include: '**/*Lexer.java').each { f ->
+            def languageName = f.name.replace('Lexer.java', '')
+
+            // Skip languages that CPD already covers
+            if(languageName =~ /(?i)^(matlab|cpp|python|scala|jsp|go|objectivec|ecmascript|plsql|ruby|cs|java|fortran|php)$/){
+                return
+            }
+
             TokenizerGenerator.generate(f, outputDir)
             LanguageGenerator.generate(f, outputDir)
-            serviceFile.append('net.quidquam.cpdantlr.language' +
-                f.name.replace('Lexer.java', '') + '\n')
+            serviceFile.append('net.quidquam.cpdantlr.language.' + languageName + 'Language\n')
         }
     }
 }
@@ -79,5 +85,8 @@ jar {
         exclude "META-INF/*.SF"
         exclude "META-INF/*.DSA"
         exclude "META-INF/*.RSA"
+    }
+    from ("$buildDir/generated-src/resources/") {
+        include 'META-INF/services/net.sourceforge.pmd.cpd.Language'
     }
 }
